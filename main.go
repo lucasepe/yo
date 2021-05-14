@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lucasepe/ko/internal/parser"
-	"github.com/lucasepe/ko/internal/stdin"
+	"github.com/lucasepe/yo/internal/parser"
+	"github.com/lucasepe/yo/internal/stdin"
 	"gopkg.in/yaml.v2"
 )
 

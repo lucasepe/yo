@@ -1,4 +1,4 @@
-module github.com/lucasepe/ko
+module github.com/lucasepe/yo
 
 go 1.16
 
