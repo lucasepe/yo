@@ -1,5 +1,7 @@
 # `yo` 
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/lucasepe/yo?style=flat-square)](https://goreportcard.com/report/github.com/lucasepe/yo) &nbsp;&nbsp;&nbsp; [![Release](https://img.shields.io/github/release/lucasepe/yo.svg?style=flat-square)](https://github.com/lucasepe/yo/releases/latest)
+
 > An alternative syntax to generate YAML (or JSON) from commandline.
 
 The ultimate commanline YAML (or JSON) generator! ... I'm kidding of course! but I'd like to know what you think.
