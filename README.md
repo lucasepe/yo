@@ -175,8 +175,8 @@ pets:
 
 In order to use the `yo` command, compile it using the following command:
 
-```bash
-go get -u github.com/lucasepe/yo
+```sh
+$ go install github.com/lucasepe/yo@latest
 ```
 
 This will create the executable under your `$GOPATH/bin` directory.
