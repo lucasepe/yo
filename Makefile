@@ -1,37 +1,107 @@
-BINARY := $(shell basename "$(PWD)")
-SOURCES := ./
-GIT_COMMIT := $(shell git rev-list -1 HEAD)
+# Set the shell to bash always
+SHELL := /bin/bash
 
+# Look for a .env file, and if present, set make variables from it.
+ifneq (,$(wildcard .env))
+	include .env
+	export $(shell sed 's/=.*//' .env)
+endif
 
-.PHONY: help
-all: help
-help: Makefile
-	@echo
-	@echo " Choose a command run in "$(PROJECTNAME)":"
-	@echo
-	@sed -n 's/^##//p' $< | column -t -s ':' |  sed -e 's/^/ /'
-	@echo
+NAME := yezl
+ORG := lucasepe
+ORG_REPO := $(ORG)/$(NAME)
+ROOT_PACKAGE := github.com/$(ORG_REPO)
+# set dev version unless VERSION is explicitly set via environment
+VERSION ?= $(shell echo "$$(git for-each-ref refs/tags/ --count=1 --sort=-version:refname --format='%(refname:short)' 2>/dev/null)-dev+$(REV)" | sed 's/^v//')
+
+# Tools
+# HELM=$(shell which helm)
 
 .DEFAULT_GOAL := help
 
-## build: Build the command line tool
-build: clean
-	CGO_ENABLED=0 go build \
-	-ldflags '-w -extldflags "-static" -X main.gitCommit=$(GIT_COMMIT)' \
-	-o ${BINARY} ${SOURCES}
+.PHONY: dev
+dev: ## dev build
+dev: clean tools generate vet fmt lint test mod-tidy
 
-## release: Build release artifacts
-release:
-	goreleaser --rm-dist --snapshot --skip-publish
+.PHONY: ci
+ci: ## CI build
+ci: dev
 
-## pack: Shrink the binary size
-pack: build 
-	upx -9 ${BINARY}
+.PHONY: clean
+clean: ## remove files created during build pipeline
+	$(call print-target)
+	rm -rf dist
+	rm -f coverage.*
 
-## test: Starts unit test
-test:
-	go test -v ./... -coverprofile coverage.out
+.PHONY: tools
+tools: ## go install tools
+	$(call print-target)
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	go install github.com/goreleaser/goreleaser@latest
 
-## clean: Clean the binary
-clean:
-	rm -f $(BINARY)
+.PHONY: generate
+generate: ## go generate
+	$(call print-target)
+	go generate ./...
+
+.PHONY: vet
+vet: ## go vet
+	$(call print-target)
+	go vet ./...
+
+.PHONY: fmt
+fmt: ## go fmt
+	$(call print-target)
+	go fmt ./...
+
+.PHONY: lint
+lint: ## golangci-lint
+	$(call print-target)
+	golangci-lint run
+
+.PHONY: test
+test: ## go test with race detector and code covarage
+	$(call print-target)
+	go test -race -covermode=atomic -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+
+.PHONY: mod-tidy
+mod-tidy: ## go mod tidy
+	$(call print-target)
+	go mod tidy
+
+.PHONY: diff
+diff: ## git diff
+	$(call print-target)
+	git diff --exit-code
+	RES=$$(git status --porcelain) ; if [ -n "$$RES" ]; then echo $$RES && exit 1 ; fi
+
+.PHONY: build
+build: ## goreleaser --snapshot --skip-publish --rm-dist
+build: tools
+	$(call print-target)
+	ROOT_PACKAGE=github.com/$(ORG_REPO) goreleaser --snapshot --skip-publish --rm-dist
+
+.PHONY: release
+release: ## goreleaser --rm-dist
+release: tools
+	$(call print-target)
+	goreleaser --rm-dist
+
+.PHONY: run
+run: ## go run
+	@go run -race .
+
+.PHONY: go-clean
+go-clean: ## go clean build, test and modules caches
+	$(call print-target)
+	go clean -r -i -cache -testcache -modcache
+
+.PHONY: help
+help:
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+
+define print-target
+    @printf "Executing target: \033[36m$@\033[0m\n"
+endef

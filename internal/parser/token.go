@@ -17,8 +17,11 @@ const (
 	ttRightBrace   // '}' object end
 	ttLeftBracket  // '[' array begin
 	ttRightBracket // ']' array end
-	ttNumber       // simple number, including imaginary
-	ttString       // string (without quotes)
+	//ttLeftRoundBracket  // '(' expression begin
+	//ttRightRoundBracket // ')' expression end
+	ttNumber     // simple number, including imaginary
+	ttString     // string (without quotes)
+	ttExpression // template expression (without round brackets)
 
 	// Keywords appear after all the rest.
 	ttKeyword // used only to delimit the keywords

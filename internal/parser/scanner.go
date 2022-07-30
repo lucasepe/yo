@@ -12,24 +12,27 @@ const (
 
 // ParseString accepts an input string and
 // Returns either a slice of Generators on success or else an error.
-func ParseString(input string) ([]Generator, error) {
+func ParseString(input string, data map[string]interface{}) ([]Generator, error) {
 	lexer := newLexer(input)
-	return (&parser{
-		lexer: lexer,
-		next:  lexer.nextToken(),
-	}).parse()
+	return newParser(lexer, data).parse()
+	/*
+		return (&parser{
+			lexer: lexer,
+			next:  lexer.nextToken(),
+		}).parse()
+	*/
 }
 
 // ParseTextLines parse a slice of lines.
 // Returns either a slice of Generators on success or else an error.
-func ParseTextLines(lines []string) ([]Generator, error) {
+func ParseTextLines(lines []string, data map[string]interface{}) ([]Generator, error) {
 	spec := strings.Join(lines, " ")
-	return ParseString(spec)
+	return ParseString(spec, data)
 }
 
 // ParseTextLines parse a reader.
 // Returns either a slice of Generators on success or else an error.
-func ParseReader(reader io.Reader) ([]Generator, error) {
+func ParseReader(reader io.Reader, data map[string]interface{}) ([]Generator, error) {
 	buffer := make([]byte, scannerBuffer)
 
 	scanner := bufio.NewScanner(reader)
@@ -46,5 +49,5 @@ func ParseReader(reader io.Reader) ([]Generator, error) {
 		return nil, err
 	}
 
-	return ParseTextLines(res)
+	return ParseTextLines(res, data)
 }

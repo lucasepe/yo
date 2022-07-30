@@ -93,6 +93,26 @@ var lexTests = []lexTest{
 		mkToken(ttRightBrace, "}"),
 		tEof,
 	}},
+	{"tmpl", `user = { name=Luca }`, []token{
+		mkToken(ttIdentifier, "user"),
+		mkToken(ttAssign, "="),
+		mkToken(ttLeftBrace, "{"),
+		mkToken(ttIdentifier, "name"),
+		mkToken(ttAssign, "="),
+		mkToken(ttString, "Luca"),
+		mkToken(ttRightBrace, "}"),
+		tEof,
+	}},
+	{"rb", `user = { id=(uuid) }`, []token{
+		mkToken(ttIdentifier, "user"),
+		mkToken(ttAssign, "="),
+		mkToken(ttLeftBrace, "{"),
+		mkToken(ttIdentifier, "id"),
+		mkToken(ttAssign, "="),
+		mkToken(ttExpression, "uuid"),
+		mkToken(ttRightBrace, "}"),
+		tEof,
+	}},
 }
 
 func TestLex(t *testing.T) {
@@ -127,7 +147,7 @@ func equal(t *testing.T, i1, i2 []token, checkPos bool) bool {
 	}
 
 	for k := range i1 {
-		//t.Logf("i1: %v->%s, i2: %v->%s", i1[k].typ, i1[k].val, i2[k].typ, i2[k].val)
+		t.Logf("i1: %v->%s, i2: %v->%s", i1[k].typ, i1[k].val, i2[k].typ, i2[k].val)
 		if i1[k].typ != i2[k].typ {
 			return false
 		}

@@ -2,10 +2,10 @@ package parser
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
-	"unicode"
+
+	"github.com/lucasepe/yo/internal/template"
 )
 
 // parseError is returned if the input cannot be successfuly parsed
@@ -26,12 +26,14 @@ type parser struct {
 	lexer   *lexer
 	matched token
 	next    token
+	ds      map[string]interface{}
 }
 
-func newParser(lex *lexer) *parser {
+func newParser(lex *lexer, data map[string]interface{}) *parser {
 	return (&parser{
 		lexer: lex,
 		next:  lex.nextToken(),
+		ds:    data,
 	})
 }
 
@@ -55,6 +57,7 @@ func (p *parser) parse() (gen []Generator, err error) {
 }
 
 func (p *parser) run() []Generator {
+	p.peek()
 	if p.peek(ttLeftBrace) || p.peek(ttLeftBracket) {
 		res := []Generator{}
 		for {
@@ -90,45 +93,58 @@ func (p *parser) object() Generator {
 			res.add(field, value)
 		}
 	}
-	p.expect(ttRightBrace)
+
+	if err := p.expect(ttRightBrace); err != nil {
+		panic(err)
+	}
+
 	return res
 }
 
 func (p *parser) array() Generator {
 	res := &arrayGenerator{}
+
 	for {
 		switch {
-		case p.found(ttString):
-			if isUpper(p.matched.val) {
-				if val, ok := os.LookupEnv(p.matched.val); ok {
-					return mkValueGenerator(val)
-				}
+		case p.found(ttExpression):
+			src, err := template.ExecuteInline(p.ds, fmt.Sprintf("{{%s}}", p.matched.val))
+			if err != nil {
+				panic(err)
 			}
-			return mkValueGenerator(p.matched.val)
+			v := mkValueGenerator(string(src))
+			res.add(v)
+
+		case p.found(ttString):
+			//fmt.Println(" - found string", p.matched.val)
+			v := mkValueGenerator(p.matched.val)
+			res.add(v)
 
 		case p.found(ttNil):
 			return mkValueGenerator(nil)
 
 		case p.found(ttNumber):
-			res, err := parseNumber(p.matched.val)
+			src, err := parseNumber(p.matched.val)
 			if err != nil {
 				panic(err)
 			}
-			return mkValueGenerator(res)
+			v := mkValueGenerator(src)
+			res.add(v)
 
 		case p.found(ttComplex):
-			res, err := parseComplex(p.matched.val)
+			src, err := parseComplex(p.matched.val)
 			if err != nil {
 				panic(err)
 			}
-			return mkValueGenerator(res)
+			v := mkValueGenerator(src)
+			res.add(v)
 
 		case p.found(ttBool):
-			res, err := parseBool(p.matched.val)
+			src, err := parseBool(p.matched.val)
 			if err != nil {
 				panic(err)
 			}
-			return mkValueGenerator(res)
+			v := mkValueGenerator(src)
+			res.add(v)
 
 		case p.found(ttIdentifier):
 			if p.peek(ttAssign) || p.peek(ttDot) {
@@ -150,6 +166,7 @@ func (p *parser) array() Generator {
 		case p.found(ttRightBracket):
 			// return, the array is complete
 			return res
+
 		case p.found(ttEof):
 			panic("unclosed array")
 		default:
@@ -164,26 +181,30 @@ func (p *parser) field(field string) Generator {
 	case p.found(ttAssign):
 		return p.value()
 	case p.found(ttDot):
+		//nolint:errcheck
 		p.expect(ttIdentifier)
+
 		field := p.matched.val
 		value := p.field(field)
 		return mkObjectGenerator().add(field, value)
 	case p.found(ttEof):
 		panic("unexpected end of input")
 	default:
-		//p.advance()
+		p.advance()
 		panic("unexpected input")
 	}
 }
 
 func (p *parser) value() Generator {
 	switch {
-	case p.found(ttString):
-		if isUpper(p.matched.val) {
-			if val, ok := os.LookupEnv(p.matched.val); ok {
-				return mkValueGenerator(val)
-			}
+	case p.found(ttExpression):
+		res, err := template.ExecuteInline(p.ds, fmt.Sprintf("{{%s}}", p.matched.val))
+		if err != nil {
+			panic(err)
 		}
+		return mkValueGenerator(string(res))
+
+	case p.found(ttString):
 		return mkValueGenerator(p.matched.val)
 
 	case p.found(ttNil):
@@ -288,13 +309,4 @@ func parseNumber(value string) (Any, error) {
 		return nil, fmt.Errorf("invalid literal %q: is not a integer or a float number", value)
 	}
 	return v, nil
-}
-
-func isUpper(s string) bool {
-	for _, r := range s {
-		if !unicode.IsUpper(r) && unicode.IsLetter(r) {
-			return false
-		}
-	}
-	return true
 }

@@ -49,6 +49,8 @@ func (l *lexer) nextToken() token {
 			return l.emit(ttAssign)
 		case r == '"':
 			return l.lexQuotedString()
+		case r == '(':
+			return l.lexExpression()
 		case r == '.':
 			x := l.peek()
 			if x < '0' || '9' < x {
@@ -114,6 +116,27 @@ Loop:
 
 	val := l.input[l.start+1 : l.pos-1]
 	return l.emitV(ttString, val)
+}
+
+// lexExpression scans an expression string.
+func (l *lexer) lexExpression() token {
+Loop:
+	for {
+		switch l.pop() {
+		case '\\':
+			if r := l.pop(); r != eof && r != '\n' {
+				break
+			}
+			fallthrough
+		case eof, '\n':
+			return l.errorf("unterminated round bracket string")
+		case ')':
+			break Loop
+		}
+	}
+
+	val := l.input[l.start+1 : l.pos-1]
+	return l.emitV(ttExpression, val)
 }
 
 // atTerminator reports whether the input is at valid termination character to

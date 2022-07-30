@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,7 +16,7 @@ func TestParseFieldGenerator(t *testing.T) {
 		expected Generator
 	}{
 		{
-			input:    `a=API_VERSION`,
+			input:    `a=v1`,
 			expected: oneFieldObjGen("a", "v1"),
 		},
 		{
@@ -56,14 +55,20 @@ func TestParseFieldGenerator(t *testing.T) {
 			input:    `a="just @ test . -"`,
 			expected: oneFieldObjGen("a", "just @ test . -"),
 		},
+		{
+			input:    `a="just.test"`,
+			expected: oneFieldObjGen("a", "just.test"),
+		},
+		{
+			input:    `a=(upper "pippo")`,
+			expected: oneFieldObjGen("a", "PIPPO"),
+		},
 	}
-
-	os.Setenv("API_VERSION", "v1")
 
 	for _, cas := range testCases {
 		t.Logf("Testing input: %s", cas.input)
 
-		ast, err := ParseString(cas.input)
+		ast, err := ParseString(cas.input, nil)
 
 		require.NoError(t, err)
 		require.Equal(t, []Generator{cas.expected}, ast)
@@ -95,12 +100,47 @@ func TestParseObjectGenerator(t *testing.T) {
 				},
 			},
 		},
+
+		{
+			input: `a={ b = (snakecase "FirstName") }`,
+			expected: &ObjectGenerator{
+				fields: map[string]Generator{
+					"a": &ObjectGenerator{
+						fields: map[string]Generator{
+							"b": mkValueGenerator("first_name"),
+						},
+					},
+				},
+			},
+		},
+
+		{
+			input: `apiVersion=v1 kind=Secret metadata.name=mysecret type=Opaque data={username=(b64enc "USER") password=(b64enc "PASS")}`,
+			expected: &ObjectGenerator{
+				fields: map[string]Generator{
+					"apiVersion": mkValueGenerator("v1"),
+					"kind":       mkValueGenerator("Secret"),
+					"metadata": &ObjectGenerator{
+						fields: map[string]Generator{
+							"name": mkValueGenerator("mysecret"),
+						},
+					},
+					"type": mkValueGenerator("Opaque"),
+					"data": &ObjectGenerator{
+						fields: map[string]Generator{
+							"username": mkValueGenerator("VVNFUg=="),
+							"password": mkValueGenerator("UEFTUw=="),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, cas := range testCases {
 		t.Logf("Testing input: %s", cas.input)
 
-		ast, err := ParseString(cas.input)
+		ast, err := ParseString(cas.input, nil)
 
 		require.NoError(t, err)
 		require.Equal(t, []Generator{cas.expected}, ast)
@@ -146,7 +186,7 @@ func TestParseDotObjectGenerator(t *testing.T) {
 	for _, cas := range testCases {
 		t.Logf("Testing input: %s", cas.input)
 
-		ast, err := ParseString(cas.input)
+		ast, err := ParseString(cas.input, nil)
 
 		require.NoError(t, err)
 		require.Equal(t, []Generator{cas.expected}, ast)
@@ -163,7 +203,7 @@ func TestComplexParse(t *testing.T) {
 				fields: map[string]Generator{
 					"gender": &ObjectGenerator{
 						fields: map[string]Generator{
-							"code": mkValueGenerator(int64(1)),
+							"code": mkValueGenerator("MTIz"),
 						},
 					},
 				},
@@ -182,7 +222,23 @@ func TestComplexParse(t *testing.T) {
 		},
 	}
 
-	ast, err := ParseString(`id=42 score=8.171 caller.gender.code=1 customer={name="Geralt of Rivia" age=86 address.zip="75018"} enabled=true`)
+	ast, err := ParseString(`id=42 score=8.171 caller.gender.code=(b64enc "123") customer={name="Geralt of Rivia" age=86 address.zip="75018"} enabled=true`, nil)
+
+	require.NoError(t, err)
+	require.Equal(t, []Generator{expected}, ast)
+}
+
+func TestArrayParse(t *testing.T) {
+	expected := &ObjectGenerator{
+		fields: map[string]Generator{
+			"tags": &arrayGenerator{
+				mkValueGenerator("d1"),
+				mkValueGenerator("pluto"),
+			},
+		},
+	}
+
+	ast, err := ParseString(`tags = [ (regexFind "[a-zA-Z][1-9]" "abcd1234") pluto ]`, nil)
 
 	require.NoError(t, err)
 	require.Equal(t, []Generator{expected}, ast)
