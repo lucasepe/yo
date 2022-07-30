@@ -386,3 +386,6 @@ If you don't want to compile the sourcecode yourself, [Here you can find the too
 - Linux
 - Windows
 
+# Why this tool?
+
+>> ¯\_(ツ)_/¯
