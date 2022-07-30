@@ -343,7 +343,7 @@ $ yo eval 'key = ( upper "hello" )'
 key: HELLO
 ```
 
-# Yes but i wnat JSON!
+# Yes but i want JSON!
 
 Ok, use the `-j / --json` flag:
 
